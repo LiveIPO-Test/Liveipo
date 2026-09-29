@@ -1,10 +1,13 @@
 // ==========================================
-// ADMIN PANEL SCRIPT (100% Fixed & Working)
+// ADMIN PANEL SCRIPT (JSONBin.io Cloud Synced)
 // ==========================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    // ૧. પેજ લોડ થતાં જ ડેશબોર્ડ ડેટા લોડ કરો
-    loadAdminDashboard();
+const ADMIN_BIN_ID = "6aaf80f9ac6210605ae1bce6";
+const ADMIN_API_KEY = "$2a$10$Pl5b/ekYZXhRBmQVY6DwieMC10GztytHM9d7CnR0zqmje7BWYj6yC";
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // ૧. પેજ લોડ થતાં જ ક્લાઉડ અને લોકલમાંથી ડેશબોર્ડ ડેટા લોડ કરો
+    await loadAdminDashboard();
     loadRegistrarDropdown();
 
     // ૨. IPO ના નામ પરથી ઓટોમેટિક શોર્ટ કોડ (Unique ID) બનાવવા માટે
@@ -56,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ૫. Form Submit Handler (DOM Loaded ની અંદર સુરક્ષિત રીતે બાઈન્ડ કરેલું)
+    // ૫. Form Submit Handler (ક્લાઉડ સેવ સાથે)
     const manageForm = document.getElementById('manageIpoForm');
     if (manageForm) {
         manageForm.addEventListener('submit', async function(e) {
@@ -66,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!ipoIdInput) return;
             const ipoId = ipoIdInput.value.trim().toUpperCase();
 
-            let dbData = JSON.parse(localStorage.getItem(MASTER_IPO_KEY)) || {};
+            let dbData = await fetchAdminDataFromCloud();
             let existingIpo = dbData[ipoId] || {};
 
             const pStart = document.getElementById('adm_priceStart').value.trim();
@@ -103,18 +106,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 gmp: document.getElementById('adm_gmp').value,
                 estPrice: document.getElementById('adm_estPrice').value,
                 bookProfit: document.getElementById('adm_bookProfit').value,
-                // admin.js માં ipoData ઓબ્જેક્ટની અંદર આ એડ કરો:
+                
                 isAllotmentOut: document.getElementById('adm_isAllotmentOut').checked,
                 registrarUrl: document.getElementById('adm_allotmentLink').value || document.getElementById('adm_registrarSelect').value || '',
+                
                 valuation: existingIpo.valuation || { eps: "₹15.00", pe: "35.00x", ronw: "20.00%", nav: "₹50.00", ebitdaMargin: "15.00%", patMargin: "8.00%" },
                 reservation: existingIpo.reservation || [{ category: "Retail", shares: "35%", percentage: "35.00%" }],
-                subShares: existingIpo.subShares || [],
-                // એડમિન પેનલમાંથી 3 લાઈન (Retail, Small HNI, Big HNI) ના લોટ સેવ કરવા માટે:
-customLots: [
-    { app: document.getElementById('app_name_retail').value || "Retail Min", lot: parseInt(document.getElementById('lot_retail').value) || 1 },
-    { app: document.getElementById('app_name_shni').value || "Small HNI", lot: parseInt(document.getElementById('lot_shni').value) || 14 },
-    { app: document.getElementById('app_name_bhni').value || "Big HNI", lot: parseInt(document.getElementById('lot_bhni').value) || 68 }
-],
+                
+                // સબસ્ક્રિપ્શન શેર ડેટા સેવ કરવા માટે
+                subShares: [
+                    { cat: "QIB", off: parseInt(document.getElementById('sub_qib_off')?.value) || 0, app: parseInt(document.getElementById('sub_qib_app')?.value) || 0 },
+                    { cat: "NII", off: parseInt(document.getElementById('sub_nii_off')?.value) || 0, app: parseInt(document.getElementById('sub_nii_app')?.value) || 0 },
+                    { cat: "B-NII(₹10L+)", off: parseInt(document.getElementById('sub_bnii_off')?.value) || 0, app: parseInt(document.getElementById('sub_bnii_app')?.value) || 0 },
+                    { cat: "S-NII(₹2-10L)", off: parseInt(document.getElementById('sub_snii_off')?.value) || 0, app: parseInt(document.getElementById('sub_snii_app')?.value) || 0 },
+                    { cat: "Retail", off: parseInt(document.getElementById('sub_retail_off')?.value) || 0, app: parseInt(document.getElementById('sub_retail_app')?.value) || 0 },
+                    { cat: "Employee", off: parseInt(document.getElementById('sub_emp_off')?.value) || 0, app: parseInt(document.getElementById('sub_emp_app')?.value) || 0 },
+                    { cat: "Shareholder", off: parseInt(document.getElementById('sub_sh_off')?.value) || 0, app: parseInt(document.getElementById('sub_sh_app')?.value) || 0 }
+                ],
+
+                // એપ્લિકેશન બ્રેકઅપ ડેટા સેવ કરવા માટે
+                subApps: [
+                    { cat: "B-NII(₹10L+)", off: parseInt(document.getElementById('app_bnii_off')?.value) || 0, app: parseInt(document.getElementById('app_bnii_app')?.value) || 0 },
+                    { cat: "S-NII(₹2-10L)", off: parseInt(document.getElementById('app_snii_off')?.value) || 0, app: parseInt(document.getElementById('app_snii_app')?.value) || 0 },
+                    { cat: "Retail", off: parseInt(document.getElementById('app_retail_off')?.value) || 0, app: parseInt(document.getElementById('app_retail_app')?.value) || 0 }
+                ],
+                
+                customLots: [
+                    { app: document.getElementById('app_name_retail').value || "Retail Min", lot: parseInt(document.getElementById('lot_retail').value) || 1 },
+                    { app: document.getElementById('app_name_shni').value || "Small HNI", lot: parseInt(document.getElementById('lot_shni').value) || 14 },
+                    { app: document.getElementById('app_name_bhni').value || "Big HNI", lot: parseInt(document.getElementById('lot_bhni').value) || 68 }
+                ],
 
                 fin: {
                     fy23: { yr: "FY-2023", ast: document.getElementById('fin_23_ast').value || '-', rev: document.getElementById('fin_23_rev').value || '-', exp: document.getElementById('fin_23_exp').value || '-', prf: document.getElementById('fin_23_prf').value || '-' },
@@ -126,39 +147,119 @@ customLots: [
 
             dbData[ipoId] = ipoData;
             
-            // ૧. તાત્કાલિક લોકલસ્ટોરેજમાં સેવ કરો
-            localStorage.setItem(MASTER_IPO_KEY, JSON.stringify(dbData));
+            // ક્લાઉડ અને લોકલસ્ટોરેજ બંનેમાં સેવ કરો
+            await saveAdminDataToCloud(dbData);
 
-            // ૨. ફાયરબેઝમાં ડેટા સેવ કરવાનો પ્રયત્ન કરો
-            try {
-                if (typeof saveMasterIpoData === 'function') {
-                    await saveMasterIpoData(dbData);
-                }
-            } catch (err) {
-                console.error("Cloud sync warning:", err);
-            }
-
-            alert(`✓ IPO "${ipoData.name}" successfully saved!`);
+            alert(`✓ IPO "${ipoData.name}" successfully saved & synced to cloud!`);
             toggleDrawer(false);
-            
-            // ૩. ડેશબોર્ડ અને ટેબલ તાત્કાલિક રીલોડ કરો
-            loadAdminDashboard();
+            await loadAdminDashboard();
         });
     }
 });
 
 // ==========================================
-// ડેશબોર્ડ ડેટા લોડ અને ટેબલ રેન્ડર કરવા માટેનું અપડેટેડ ફંક્શન
+// JSONBIN.IO CLOUD SYNC FUNCTIONS
 // ==========================================
-function loadAdminDashboard() {
+async function fetchAdminDataFromCloud() {
+    try {
+        const response = await fetch(`https://api.jsonbin.io/v3/b/${ADMIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': ADMIN_API_KEY }
+        });
+        if (response.ok) {
+            const result = await response.json();
+            const cloudData = result.record.ipos || result.record;
+            if (cloudData && typeof cloudData === 'object' && Object.keys(cloudData).length > 0) {
+                localStorage.setItem('live_ipo_master_cloud_data', JSON.stringify(cloudData));
+                return cloudData;
+            }
+        }
+    } catch (err) {
+        console.error("Cloud fetch error, falling back to local storage:", err);
+    }
+    
+    let local = JSON.parse(localStorage.getItem('live_ipo_master_cloud_data'));
+    if (local && Object.keys(local).length > 0) return local;
+
+    // Default Fallback
+    return {
+        "PSL": {
+            id: "PSL",
+            name: "Purple Style Labs IPO Details",
+            logo: "https://www.liveipo.in/liveipo_logo.jpg",
+            type: "Mainboard",
+            priceBand: "546 to 575",
+            lotRaw: 26,
+            lotSize: "26 Shares",
+            openDate: "2026-08-31",
+            closeDate: "2026-09-02",
+            allotmentDate: "2026-09-03",
+            listingDate: "2026-09-07",
+            gmp: "50",
+            isAllotmentOut: false
+        }
+    };
+}
+
+async function saveAdminDataToCloud(dbData) {
+    localStorage.setItem('live_ipo_master_cloud_data', JSON.stringify(dbData));
+    try {
+        await fetch(`https://api.jsonbin.io/v3/b/${ADMIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': ADMIN_API_KEY
+            },
+            body: JSON.stringify({ ipos: dbData, updatedAt: new Date().toISOString() })
+        });
+    } catch (err) {
+        console.error("Cloud sync error during save:", err);
+    }
+}
+
+// ==========================================
+// IPO સ્ટેટસ નક્કી કરવા માટેનું કોમન ફંક્શન
+// ==========================================
+function getIpoStatus(openStr, closeStr, allotStr, listStr, isAllotmentOut) {
+    if (isAllotmentOut === true) {
+        return { text: "Allotment Out", class: "status-allotment-parrot" };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const openDate = openStr ? new Date(openStr) : null;
+    const closeDate = closeStr ? new Date(closeStr) : null;
+    const allotDate = allotStr ? new Date(allotStr) : null;
+    const listDate = listStr ? new Date(listStr) : null;
+
+    if (openDate) openDate.setHours(0, 0, 0, 0);
+    if (closeDate) closeDate.setHours(0, 0, 0, 0);
+    if (allotDate) allotDate.setHours(0, 0, 0, 0);
+    if (listDate) listDate.setHours(0, 0, 0, 0);
+
+    if (openDate && today < openDate) {
+        return { text: "Upcoming", class: "status-upcoming-green" };
+    } else if (openDate && closeDate && today >= openDate && today <= closeDate) {
+        return { text: "🔴 Live", class: "status-live-blinking" };
+    } else if (closeDate && today > closeDate && (!listDate || today < listDate)) {
+        return { text: "Allotment Waiting", class: "status-waiting-orange" };
+    } else if (listDate && today.getTime() === listDate.getTime()) {
+        return { text: "Listing Today 🚀", class: "status-listing-indigo" };
+    } else if (listDate && today > listDate) {
+        return { text: "Listed", class: "status-listed-slate" };
+    }
+
+    return { text: "Closed", class: "status-listed-slate" };
+}
+
+// ==========================================
+// ડેશબોર્ડ ડેટા લોડ અને ટેબલ રેન્ડર કરવા માટેનું ફંક્શન
+// ==========================================
+async function loadAdminDashboard() {
     const tbody = document.getElementById('adminTableBody');
     if (!tbody) return;
 
-    let db = JSON.parse(localStorage.getItem(MASTER_IPO_KEY));
-    if (!db || typeof db !== 'object' || Object.keys(db).length === 0) {
-        db = initialDefaultData;
-        localStorage.setItem(MASTER_IPO_KEY, JSON.stringify(db));
-    }
+    let db = await fetchAdminDataFromCloud();
 
     tbody.innerHTML = '';
     let total = 0, live = 0, upcoming = 0, allotment = 0;
@@ -170,10 +271,8 @@ function loadAdminDashboard() {
         if (!ipo) return;
         total++;
 
-        // તારીખ મુજબ સાચું સ્ટેટસ મેળવો
         const statusObj = getIpoStatus(ipo.openDate, ipo.closeDate, ipo.allotmentDate, ipo.listingDate, ipo.isAllotmentOut);
 
-        // ઉપરના કાર્ડ્સ માટે કાઉન્ટર સેટ કરવું
         const openD = ipo.openDate ? new Date(ipo.openDate) : null;
         const closeD = ipo.closeDate ? new Date(ipo.closeDate) : null;
         if (openD) openD.setHours(0, 0, 0, 0);
@@ -187,7 +286,6 @@ function loadAdminDashboard() {
             upcoming++;
         }
 
-        // સ્ટેટસ બેજ માટેના રંગો નક્કી કરવા
         let statusBg = "#dcfce7"; 
         let statusColor = "#166534";
 
@@ -222,11 +320,9 @@ function loadAdminDashboard() {
                 <td style="text-align: center; font-weight: bold;">₹${ipo.priceBand || '-'}</td>
                 <td style="text-align: center;">${ipo.lotSize || (ipo.lotRaw + ' Shares')}</td>
                 <td style="text-align: center;">
-                    <!-- ડેશબોર્ડમાંથી જ ડાયરેક્ટ GMP બદલવા માટેનું ઇનપુટ બોક્સ -->
                     <input type="text" id="dash_gmp_${ipo.id}" value="${ipo.gmp || ''}" placeholder="0" style="width: 70px; padding: 4px; text-align: center; font-weight: 700; color: #166534; border: 1px solid #cbd5e1; border-radius: 4px;">
                 </td>
                 <td style="text-align: center;">
-                    <!-- ડેશબોર્ડમાંથી જ ડાયરેક્ટ અલોટમેન્ટ આઉટ કરવા માટેનું ચેકબોક્સ -->
                     <label style="cursor: pointer; font-size: 11.5px; font-weight: 600; color: #7c3aed; display: inline-flex; align-items: center; gap: 4px;">
                         <input type="checkbox" id="dash_allot_${ipo.id}" ${isChecked} style="width: 15px; height: 15px;"> Out
                     </label>
@@ -247,6 +343,23 @@ function loadAdminDashboard() {
     if (document.getElementById('stat_live')) document.getElementById('stat_live').innerText = live;
     if (document.getElementById('stat_upcoming')) document.getElementById('stat_upcoming').innerText = upcoming;
     if (document.getElementById('stat_allotment')) document.getElementById('stat_allotment').innerText = allotment;
+}
+
+// ડેશબોર્ડ ટેબલ પરથી જ ડાયરેક્ટ GMP અને અલોટમેન્ટ સેવ કરવા માટે
+async function quickSaveFromDashboard(ipoId) {
+    let dbData = await fetchAdminDataFromCloud();
+    if (!dbData[ipoId]) return;
+
+    const gmpInput = document.getElementById(`dash_gmp_${ipoId}`);
+    const allotCheckbox = document.getElementById(`dash_allot_${ipoId}`);
+
+    if (gmpInput) dbData[ipoId].gmp = gmpInput.value.trim();
+    if (allotCheckbox) dbData[ipoId].isAllotmentOut = allotCheckbox.checked;
+
+    await saveAdminDataToCloud(dbData);
+
+    alert(`✓ IPO "${dbData[ipoId].name}" સફળતાપૂર્વક ક્લાઉડ પર અપડેટ થઈ ગયો છે!`);
+    await loadAdminDashboard();
 }
 
 // ડ્રોઅર ઓપન/ક્લોઝ કરવા માટે
@@ -278,8 +391,8 @@ function openAddDrawer() {
 }
 
 // એડિટ કરવા માટે
-function editIpo(id) {
-    let db = JSON.parse(localStorage.getItem(MASTER_IPO_KEY)) || {};
+async function editIpo(id) {
+    let db = await fetchAdminDataFromCloud();
     const ipo = db[id];
     if (!ipo) return;
 
@@ -289,7 +402,7 @@ function editIpo(id) {
     document.getElementById('adm_logo').value = ipo.logo || '';
     document.getElementById('adm_type').value = ipo.type || 'Mainboard';
     document.getElementById('adm_about').value = ipo.about || '';
-    // editIpo ફંક્શનની અંદર આ એડ કરો:
+    
     document.getElementById('adm_isAllotmentOut').checked = ipo.isAllotmentOut || false;
     document.getElementById('adm_allotmentLink').value = ipo.registrarUrl || '';
 
@@ -325,6 +438,28 @@ function editIpo(id) {
     document.getElementById('adm_estPrice').value = ipo.estPrice || '';
     document.getElementById('adm_bookProfit').value = ipo.bookProfit || '';
 
+    // એડિટ વખતે સબસ્ક્રિપ્શન શેર ડેટા ઇનપુટ બોક્સમાં ભરવા માટે
+    if (ipo.subShares) {
+        ipo.subShares.forEach(row => {
+            if (row.cat === "QIB" && document.getElementById('sub_qib_off')) { document.getElementById('sub_qib_off').value = row.off; document.getElementById('sub_qib_app').value = row.app; }
+            if (row.cat === "NII" && document.getElementById('sub_nii_off')) { document.getElementById('sub_nii_off').value = row.off; document.getElementById('sub_nii_app').value = row.app; }
+            if (row.cat === "B-NII(₹10L+)" && document.getElementById('sub_bnii_off')) { document.getElementById('sub_bnii_off').value = row.off; document.getElementById('sub_bnii_app').value = row.app; }
+            if (row.cat === "S-NII(₹2-10L)" && document.getElementById('sub_snii_off')) { document.getElementById('sub_snii_off').value = row.off; document.getElementById('sub_snii_app').value = row.app; }
+            if (row.cat === "Retail" && document.getElementById('sub_retail_off')) { document.getElementById('sub_retail_off').value = row.off; document.getElementById('sub_retail_app').value = row.app; }
+            if (row.cat === "Employee" && document.getElementById('sub_emp_off')) { document.getElementById('sub_emp_off').value = row.off; document.getElementById('sub_emp_app').value = row.app; }
+            if (row.cat === "Shareholder" && document.getElementById('sub_sh_off')) { document.getElementById('sub_sh_off').value = row.off; document.getElementById('sub_sh_app').value = row.app; }
+        });
+    }
+
+    // એડિટ વખતે એપ્લિકેશન બ્રેકઅપ ડેટા બોક્સમાં ભરવા માટે
+    if (ipo.subApps) {
+        ipo.subApps.forEach(row => {
+            if (row.cat === "B-NII(₹10L+)" && document.getElementById('app_bnii_off')) { document.getElementById('app_bnii_off').value = row.off; document.getElementById('app_bnii_app').value = row.app; }
+            if (row.cat === "S-NII(₹2-10L)" && document.getElementById('app_snii_off')) { document.getElementById('app_snii_off').value = row.off; document.getElementById('app_snii_app').value = row.app; }
+            if (row.cat === "Retail" && document.getElementById('app_retail_off')) { document.getElementById('app_retail_off').value = row.off; document.getElementById('app_retail_app').value = row.app; }
+        });
+    }
+
     if (ipo.fin) {
         if (ipo.fin.fy23) { document.getElementById('fin_23_ast').value = ipo.fin.fy23.ast || ''; document.getElementById('fin_23_rev').value = ipo.fin.fy23.rev || ''; document.getElementById('fin_23_exp').value = ipo.fin.fy23.exp || ''; document.getElementById('fin_23_prf').value = ipo.fin.fy23.prf || ''; }
         if (ipo.fin.fy24) { document.getElementById('fin_24_ast').value = ipo.fin.fy24.ast || ''; document.getElementById('fin_24_rev').value = ipo.fin.fy24.rev || ''; document.getElementById('fin_24_exp').value = ipo.fin.fy24.exp || ''; document.getElementById('fin_24_prf').value = ipo.fin.fy24.prf || ''; }
@@ -342,22 +477,23 @@ function editIpo(id) {
 // ડીલીટ કરવા માટે
 async function deleteIpo(id) {
     if (confirm(`Are you sure you want to delete IPO: ${id}?`)) {
-        let dbData = JSON.parse(localStorage.getItem(MASTER_IPO_KEY)) || {};
+        let dbData = await fetchAdminDataFromCloud();
         delete dbData[id];
         
-        localStorage.setItem(MASTER_IPO_KEY, JSON.stringify(dbData));
+        await saveAdminDataToCloud(dbData);
 
-        try {
-            if (typeof saveMasterIpoData === 'function') {
-                await saveMasterIpoData(dbData);
-            }
-        } catch (err) {
-            console.error("Cloud sync warning:", err);
-        }
-
-        loadAdminDashboard();
-        alert(`✓ IPO ${id} deleted successfully.`);
+        await loadAdminDashboard();
+        alert(`✓ IPO ${id} deleted successfully from cloud.`);
     }
+}
+
+// તારીખ રીડેબલ ફોર્મેટ કરવા માટે
+function formatDateReadable(dateStr) {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    const options = { day: '2-digit', month: 'short', year: 'numeric' };
+    return d.toLocaleDateString('en-GB', options);
 }
 
 // નવો રજિસ્ટ્રાર ઉમેરવાનું બોક્સ ખોલવા/બંધ કરવા માટે
@@ -373,7 +509,6 @@ function loadRegistrarDropdown() {
     const selectEl = document.getElementById('adm_registrarSelect');
     if (!selectEl) return;
 
-    // ડિફોલ્ટ અથવા સેવ કરેલા રજિસ્ટ્રાર મેળવવા
     let registrars = JSON.parse(localStorage.getItem('live_ipo_registrars')) || [
         { name: "Link Intime India Pvt Ltd", url: "https://linkintime.co.in/initial_offer/default.aspx" },
         { name: "KFin Technologies Ltd", url: "https://kosmic.kfintech.com/ipostatus/" },
@@ -388,8 +523,6 @@ function loadRegistrarDropdown() {
         selectEl.appendChild(option);
     });
 }
-
-
 
 // નવો રજિસ્ટ્રાર ડ્રોપડાઉનમાં એડ કરવા માટે
 function addNewRegistrarOption() {
@@ -410,16 +543,11 @@ function addNewRegistrarOption() {
         { name: "Bigshare Services Pvt Ltd", url: "https://ipo.bigshareonline.com/ipo_status.html" }
     ];
 
-    // લિસ્ટમાં નવો રજિસ્ટ્રાર ઉમેરવો
     registrars.push({ name: name, url: url });
     localStorage.setItem('live_ipo_registrars', JSON.stringify(registrars));
 
-    // ડ્રોપડાઉન રિફ્રેશ કરવું
     loadRegistrarDropdown();
-
-    // સિલેક્ટ કરી દેવું
     document.getElementById('adm_registrarSelect').value = url;
-    setRegistrarLink(url);
 
     nameInput.value = '';
     urlInput.value = '';
@@ -429,40 +557,28 @@ function addNewRegistrarOption() {
 }
 
 // રજિસ્ટ્રાર મેનેજમેન્ટ વ્યુ સ્વિચ કરવા માટે
-function switchAdminView(viewName, event) {
+async function switchAdminView(viewName, event) {
     if (event) event.preventDefault();
     
-    const dashboardCard = document.querySelector('.content-card'); // IPO Master Table Card
+    const dashboardCard = document.querySelector('.content-card');
     const registrarsSec = document.getElementById('registrarsSection');
     const formDrawer = document.getElementById('ipoFormDrawer');
-    const gmpSec = document.getElementById('gmpManagerSection');
     
-    // બધી લિંકમાંથી active હટાવો
     document.querySelectorAll('.admin-menu a').forEach(a => a.classList.remove('active'));
     if (event && event.currentTarget) event.currentTarget.classList.add('active');
 
-    if (viewName === 'gmp') {
-    if (dashboardCard) dashboardCard.style.display = 'none';
-    if (registrarsSec) registrarsSec.style.display = 'none';
-    if (formDrawer) formDrawer.style.display = 'none';
-    if (gmpSec) {
-        gmpSec.style.display = 'block';
-        loadGmpManagerTable();
+    if (viewName === 'registrars') {
+        if (dashboardCard) dashboardCard.style.display = 'none';
+        if (formDrawer) formDrawer.style.display = 'none';
+        if (registrarsSec) {
+            registrarsSec.style.display = 'block';
+            loadRegistrarsTable();
+        }
+    } else {
+        if (dashboardCard) dashboardCard.style.display = 'block';
+        if (registrarsSec) registrarsSec.style.display = 'none';
+        await loadAdminDashboard();
     }
-} else if (viewName === 'registrars') {
-    if (dashboardCard) dashboardCard.style.display = 'none';
-    if (gmpSec) gmpSec.style.display = 'none';
-    if (formDrawer) formDrawer.style.display = 'none';
-    if (registrarsSec) {
-        registrarsSec.style.display = 'block';
-        loadRegistrarsTable();
-    }
-} else {
-    if (dashboardCard) dashboardCard.style.display = 'block';
-    if (registrarsSec) registrarsSec.style.display = 'none';
-    if (gmpSec) gmpSec.style.display = 'none';
-    loadAdminDashboard();
-}
 }
 
 // રજિસ્ટ્રાર ટેબલ લોડ કરવા માટે
@@ -525,186 +641,3 @@ function deleteRegistrar(index) {
         alert("✓ રજિસ્ટ્રાર ડિલીટ થઈ ગયો છે.");
     }
 }
-
-// મેનેજ રજિસ્ટ્રાર સેક્શનમાંથી સીધો નવો રજિસ્ટ્રાર સેવ કરવા માટે
-function addNewRegistrarFromManager() {
-    const nameInput = document.getElementById('manageNewRegName');
-    const urlInput = document.getElementById('manageNewRegUrl');
-
-    const name = nameInput.value.trim();
-    const url = urlInput.value.trim();
-
-    if (!name || !url) {
-        alert('કૃપા કરીને રજિસ્ટ્રારનું નામ અને યુઆરએલ બંને દાખલ કરો.');
-        return;
-    }
-
-    let registrars = JSON.parse(localStorage.getItem('live_ipo_registrars')) || [
-        { name: "Link Intime India Pvt Ltd", url: "https://linkintime.co.in/initial_offer/default.aspx" },
-        { name: "KFin Technologies Ltd", url: "https://kosmic.kfintech.com/ipostatus/" },
-        { name: "Bigshare Services Pvt Ltd", url: "https://ipo.bigshareonline.com/ipo_status.html" }
-    ];
-
-    registrars.push({ name: name, url: url });
-    localStorage.setItem('live_ipo_registrars', JSON.stringify(registrars));
-
-    // ટેબલ અને ડ્રોપડાઉન રિફ્રેશ કરો
-    loadRegistrarsTable();
-    loadRegistrarDropdown();
-
-    nameInput.value = '';
-    urlInput.value = '';
-
-    alert(`✓ નવો રજિસ્ટ્રાર "${name}" સફળતાપૂર્વક ઉમેરાઈ ગયો છે!`);
-}
-
-// GMP મેનેજર ટેબલ લોડ કરવા માટે
-// admin.js માં loadGmpManagerTable() ફંક્શનની અંદર:
-function loadGmpManagerTable() {
-    const tbody = document.getElementById('gmpTableBody');
-    if (!tbody) return;
-
-    let dbData = JSON.parse(localStorage.getItem(MASTER_IPO_KEY)) || {};
-    tbody.innerHTML = '';
-
-    Object.keys(dbData).forEach(key => {
-        const ipo = dbData[key];
-        const isChecked = ipo.isAllotmentOut === true ? 'checked' : '';
-
-        tbody.innerHTML += `
-            <tr>
-                <td>
-                    <strong>${ipo.name}</strong><br>
-                    <span style="font-size: 11px; color: #64748b;">ID: ${ipo.id}</span>
-                </td>
-                <td>₹${ipo.priceBand || '-'}</td>
-                <td>
-                    <input type="text" id="gmp_val_${ipo.id}" value="${ipo.gmp || ''}" placeholder="e.g. 50" style="width: 100px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-weight: 600;">
-                </td>
-                <td>
-                    <input type="text" id="est_val_${ipo.id}" value="${ipo.estPrice || ipo.expectedListingPrice || ''}" placeholder="e.g. ₹625" style="width: 120px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center;">
-                </td>
-                <td style="text-align: center;">
-                    <label style="cursor: pointer; font-size: 12px; font-weight: 600; color: #7c3aed; display: inline-flex; align-items: center; gap: 5px;">
-                        <input type="checkbox" id="allot_val_${ipo.id}" ${isChecked} style="width: 16px; height: 16px;"> Out
-                    </label>
-                </td>
-                <td style="text-align: center;">
-                    <button type="button" onclick="quickUpdateGmp('${ipo.id}')" style="background: #166534; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px;">💾 Update</button>
-                </td>
-            </tr>
-        `;
-    });
-}
-
-// બહારથી જ GMP સેવ અને ક્લાઉડ સિંક કરવા માટે
-async function quickUpdateGmp(ipoId) {
-    let dbData = JSON.parse(localStorage.getItem(MASTER_IPO_KEY)) || {};
-    if (!dbData[ipoId]) return;
-
-    const newGmp = document.getElementById(`gmp_val_${ipoId}`).value.trim();
-    const newEst = document.getElementById(`est_val_${ipoId}`).value.trim();
-    const isAllotOut = document.getElementById(`allot_val_${ipoId}`).checked;
-
-    // ડેટા અપડેટ કરો
-    dbData[ipoId].gmp = newGmp;
-    dbData[ipoId].estPrice = newEst;
-    dbData[ipoId].expectedListingPrice = newEst;
-    dbData[ipoId].isAllotmentOut = isAllotOut; // અલોટમેન્ટ સ્ટેટસ સેવ થશે
-
-    // લોકલસ્ટોરેજમાં સેવ કરો
-    localStorage.setItem(MASTER_IPO_KEY, JSON.stringify(dbData));
-
-    // ફાયરબેઝમાં પણ સિંક કરો
-    try {
-        if (typeof saveMasterIpoData === 'function') {
-            await saveMasterIpoData(dbData);
-        }
-    } catch (err) {
-        console.error("Cloud sync warning:", err);
-    }
-
-    alert(`✓ IPO "${dbData[ipoId].name}" ના GMP અને Allotment સ્ટેટસ સફળતાપૂર્વક અપડેટ થઈ ગયા છે!`);
-    loadGmpManagerTable();
-}
-
-// ડેશબોર્ડ ટેબલ પરથી જ ડાયરેક્ટ GMP અને અલોટમેન્ટ સેવ કરવા માટે
-async function quickSaveFromDashboard(ipoId) {
-    let dbData = JSON.parse(localStorage.getItem(MASTER_IPO_KEY)) || {};
-    if (!dbData[ipoId]) return;
-
-    const gmpInput = document.getElementById(`dash_gmp_${ipoId}`);
-    const allotCheckbox = document.getElementById(`dash_allot_${ipoId}`);
-
-    if (gmpInput) dbData[ipoId].gmp = gmpInput.value.trim();
-    if (allotCheckbox) dbData[ipoId].isAllotmentOut = allotCheckbox.checked;
-
-    // લોકલસ્ટોરેજમાં સેવ કરો
-    localStorage.setItem(MASTER_IPO_KEY, JSON.stringify(dbData));
-
-    // ફાયરબેઝ ક્લાઉડ સિંક કરો
-    try {
-        if (typeof saveMasterIpoData === 'function') {
-            await saveMasterIpoData(dbData);
-        }
-    } catch (err) {
-        console.error("Cloud sync warning:", err);
-    }
-
-    alert(`✓ IPO "${dbData[ipoId].name}" સફળતાપૂર્વક અપડેટ થઈ ગયો છે!`);
-    loadAdminDashboard();
-}
-
-// ==========================================
-// IPO સ્ટેટસ નક્કી કરવા માટેનું કોમન ફંક્શન
-// ==========================================
-function getIpoStatus(openStr, closeStr, allotStr, listStr, isAllotmentOut) {
-    if (isAllotmentOut === true) {
-        return { text: "Allotment Out", class: "status-allotment-parrot" };
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const openDate = openStr ? new Date(openStr) : null;
-    const closeDate = closeStr ? new Date(closeStr) : null;
-    const allotDate = allotStr ? new Date(allotStr) : null;
-    const listDate = listStr ? new Date(listStr) : null;
-
-    if (openDate) openDate.setHours(0, 0, 0, 0);
-    if (closeDate) closeDate.setHours(0, 0, 0, 0);
-    if (allotDate) allotDate.setHours(0, 0, 0, 0);
-    if (listDate) listDate.setHours(0, 0, 0, 0);
-
-    // ૧. જો આજની તારીખ ઓપન ડેટ કરતા વહેલી હોય -> Upcoming
-    if (openDate && today < openDate) {
-        return { text: "Upcoming", class: "status-upcoming-green" };
-    } 
-    // ૨. જો આજની તારીખ ઓપન અને ક્લોઝ ડેટની વચ્ચે અથવા તે જ દિવસે હોય -> 🔴 Live
-    else if (openDate && closeDate && today >= openDate && today <= closeDate) {
-        return { text: "🔴 Live", class: "status-live-blinking" };
-    } 
-    // ૩. જો ક્લોઝ ડેટ વીતી ગઈ હોય અને લિસ્ટિંગ તારીખ હજી ન આવી હોય -> Allotment Waiting
-    else if (closeDate && today > closeDate && (!listDate || today < listDate)) {
-        return { text: "Allotment Waiting", class: "status-waiting-orange" };
-    } 
-    // ൪. જો આજની તારીખ બરાબર લિસ્ટિંગ તારીખ હોય -> Listing Today 🚀
-    else if (listDate && today.getTime() === listDate.getTime()) {
-        return { text: "Listing Today 🚀", class: "status-listing-indigo" };
-    } 
-    // ૫. જો લિસ્ટિંગ તારીખ વીતી ગઈ હોય -> Listed
-    else if (listDate && today > listDate) {
-        return { text: "Listed", class: "status-listed-slate" };
-    }
-
-    return { text: "Closed", class: "status-listed-slate" };
-}
-
-function adminLogout(e) {
-    if (e) e.preventDefault();
-    if (confirm("શું તમે ખરેખર એડમિન પેનલમાંથી લોગઆઉટ કરવા માંગો છો?")) {
-        localStorage.removeItem('live_ipo_admin_logged');
-        window.location.href = 'login.html';
-    }
-}
-

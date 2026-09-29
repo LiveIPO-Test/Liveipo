@@ -654,3 +654,41 @@ body.home-page {
     border-top: 1px dashed #e2e8f0;
     font-weight: 600;
 }
+/* ફ્રન્ટ-એન્ડ હોમપેજ અને ટેબલના ફોન્ટ સાઈઝ નાના કરવા માટે */
+.structured-table th {
+    font-size: 12px !important;
+    padding: 10px 8px !important;
+}
+
+.structured-table td {
+    font-size: 12.5px !important;
+    padding: 10px 8px !important;
+}
+
+/* હીરો સેક્શનના હેડિંગ અને સબટેક્સ્ટની સાઈઝ */
+.home-page .hero-card h1, 
+.hero-company-info h1 {
+    font-size: 20px !important;
+}
+
+.home-page .hero-card p,
+.hero-company-info p {
+    font-size: 13px !important;
+}
+
+/* ફિલ્ટર બટન્સ અને વ્યુ ડિટેલ્સ બટનની સાઈઝ */
+.home-page .filter-btn {
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+}
+
+.home-page .view-details-btn {
+    padding: 5px 10px !important;
+    font-size: 11.5px !important;
+}
+
+/* સર્ચ ઇનપુટ બોક્સની સાઈઝ */
+#ipoSearchInput {
+    padding: 7px 12px !important;
+    font-size: 13px !important;
+}

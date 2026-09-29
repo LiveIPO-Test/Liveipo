@@ -1,21 +1,8 @@
 // ==========================================
-// 1. FIREBASE & VERSION CONFIGURATION
+// 1. JSONBin.io & VERSION CONFIGURATION
 // ==========================================
-const firebaseConfig = {
-    apiKey: "AIzaSyA0WCWiaQia1K0qJvadIZf3yLqu-QtPHfE",
-    authDomain: "liveipo-portal.firebaseapp.com",
-    projectId: "liveipo-portal",
-    storageBucket: "liveipo-portal.firebasestorage.app",
-    messagingSenderId: "630844190369",
-    appId: "1:630844190369:web:523e9c2317181a66400ae0",
-    measurementId: "G-7R1WGY0296"
-};
-
-// Initialize Firebase
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.firestore();
+const BIN_ID = "6aaf80f9ac6210605ae1bce6";
+const API_KEY = "$2a$10$Pl5b/ekYZXhRBmQVY6DwieMC10GztytHM9d7CnR0zqmje7BWYj6yC";
 
 const MASTER_IPO_KEY = 'live_ipo_master_cloud_data';
 const DATA_VERSION_KEY = 'live_ipo_data_version_v1';
@@ -102,41 +89,21 @@ const initialDefaultData = {
 };
 
 // ==========================================
-// FIREBASE FIRESTORE SYNC FUNCTIONS (100% Fixed)
+// MASTER DATA FETCHING (Cloud & Local Sync)
 // ==========================================
 async function getMasterIpoData() {
     try {
-        const docRef = db.collection("ipo_portal").doc("master_data");
-        const doc = await docRef.get();
-
-        let localData = JSON.parse(localStorage.getItem(MASTER_IPO_KEY));
-
-        if (doc.exists && doc.data().ipos) {
-            const cloudData = doc.data().ipos;
-            
-            // જો લોકલસ્ટોરેજમાં ડેટા હાજર હોય, તો લોકલસ્ટોરેજને જ સાચું માનીને ક્લાઉડ પર પણ એ જ ફોર્સ સિન્ક કરો
-            if (localData && Object.keys(localData).length > 0) {
-                // જો ક્લાઉડ કરતા લોકલસ્ટોરેજમાં વધારે અથવા સમાન આઈપીઓ હોય તો ક્લાઉડ અપડેટ કરો
-                await docRef.set({ ipos: localData, updatedAt: new Date().toISOString() }, { merge: true });
-                return localData;
-            } else {
-                // જો લોકલ ખાલી હોય તો ક્લાઉડ ડેટા લોકલમા નાખો
-                localStorage.setItem(MASTER_IPO_KEY, JSON.stringify(cloudData));
-                return cloudData;
-            }
-        } else {
-            // જો ફાયરબેઝમાં કશું જ ન હોય તો લોકલ અથવા ડિફૉલ્ટ ડેટા અપલોડ કરો
-            if (!localData || Object.keys(localData).length === 0) {
-                localData = initialDefaultData;
-                localStorage.setItem(MASTER_IPO_KEY, JSON.stringify(localData));
-            }
-            await docRef.set({ ipos: localData, updatedAt: new Date().toISOString() });
+        let localData = JSON.parse(localStorage.getItem('live_ipo_master_cloud_data'));
+        
+        if (localData && Object.keys(localData).length > 0) {
             return localData;
+        } else {
+            localStorage.setItem('live_ipo_master_cloud_data', JSON.stringify(initialDefaultData));
+            return initialDefaultData;
         }
     } catch (error) {
-        console.error("Error fetching from Firebase, falling back to LocalStorage:", error);
-        let dbData = JSON.parse(localStorage.getItem(MASTER_IPO_KEY));
-        return dbData && Object.keys(dbData).length > 0 ? dbData : initialDefaultData;
+        console.error("Error loading IPO data:", error);
+        return initialDefaultData;
     }
 }
 
@@ -176,34 +143,35 @@ function formatIssueSizeWithAmount(rawShares, price) {
 }
 
 function getIpoStatus(openStr, closeStr, allotStr, listStr, isAllotmentOut) {
+    if (isAllotmentOut === true) {
+        return { text: "Allotment Out", class: "status-allotment-parrot" };
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const openDate = new Date(openStr);
-    openDate.setHours(0, 0, 0, 0);
+    const openDate = openStr ? new Date(openStr) : null;
+    const closeDate = closeStr ? new Date(closeStr) : null;
+    const allotDate = allotStr ? new Date(allotStr) : null;
+    const listDate = listStr ? new Date(listStr) : null;
 
-    const closeDate = new Date(closeStr);
-    closeDate.setHours(0, 0, 0, 0);
+    if (openDate) openDate.setHours(0, 0, 0, 0);
+    if (closeDate) closeDate.setHours(0, 0, 0, 0);
+    if (allotDate) allotDate.setHours(0, 0, 0, 0);
+    if (listDate) listDate.setHours(0, 0, 0, 0);
 
-    const allotDate = new Date(allotStr);
-    allotDate.setHours(0, 0, 0, 0);
-
-    const listDate = new Date(listStr);
-    listDate.setHours(0, 0, 0, 0);
-
-    if (today < openDate) {
+    if (openDate && today < openDate) {
         return { text: "Upcoming", class: "status-upcoming-green" };
-    } else if (today >= openDate && today <= closeDate) {
+    } else if (openDate && closeDate && today >= openDate && today <= closeDate) {
         return { text: "🔴 Live", class: "status-live-blinking" };
-    } else if (today > closeDate && today < allotDate) {
+    } else if (closeDate && today > closeDate && (!listDate || today < listDate)) {
         return { text: "Allotment Waiting", class: "status-waiting-orange" };
-    } else if (today.getTime() === allotDate.getTime()) {
-        return { text: "Allotment Out", class: "status-allotment-parrot" };
-    } else if (today.getTime() === listDate.getTime()) {
+    } else if (listDate && today.getTime() === listDate.getTime()) {
         return { text: "Listing Today 🚀", class: "status-listing-indigo" };
-    } else if (today > listDate) {
+    } else if (listDate && today > listDate) {
         return { text: "Listed", class: "status-listed-slate" };
     }
+
     return { text: "Closed", class: "status-listed-slate" };
 }
 
@@ -265,8 +233,6 @@ function calculateTimelineProgress(openStr, closeStr, allotStr, listStr) {
 // ==========================================
 // 4. HOME PAGE LOGIC (Cloud Connected)
 // ==========================================
-// script.js માં loadHomeIpoTable() ફંક્શનની અંદર ટેબલ રો ડેટામાં આ ઉમેરો:
-
 async function loadHomeIpoTable() {
     const tableBody = document.getElementById('homeTableBody');
     if (!tableBody) return;
@@ -287,7 +253,6 @@ async function loadHomeIpoTable() {
 
         const statusObj = getIpoStatus(ipo.openDate, ipo.closeDate, ipo.allotmentDate, ipo.listingDate, ipo.isAllotmentOut);
 
-        // અલોટમેન્ટ સ્ટેટસ અને ચેક બટન માટેનું હોમપેજ લોજિક
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const allotDate = ipo.allotmentDate ? new Date(ipo.allotmentDate) : null;
@@ -331,7 +296,7 @@ async function loadHomeIpoTable() {
                     <span style="background: #dcfce7; color: #166534; padding: 5px 10px; border-radius: 6px; font-weight: 600; font-size: 12px;">+${ipo.gmp}</span>
                 </td>
                 <td style="text-align: center; font-weight: 600; color: #1e293b;">${overallSubTimes}</td>
-                <td style="text-align: center;">${homeAllotmentHtml}</td> <!-- હોમપેજ માટેનું અલોટમેન્ટ સ્ટેટસ/બટન -->
+                <td style="text-align: center;">${homeAllotmentHtml}</td>
                 <td style="text-align: center;">
                     <span class="${statusObj.class}" style="padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; display: inline-block;">${statusObj.text}</span>
                 </td>
@@ -457,6 +422,12 @@ async function loadDynamicIpoDetails() {
     const cutOffPrice = ipo.cutOff || 0;
     const minInvestCalc = cutOffPrice * lotSizeNum;
 
+    let retailLotCount = (ipo.customLots && ipo.customLots[0]) ? parseInt(ipo.customLots[0].lot) || 1 : 1;
+    let hniLotCount = (ipo.customLots && ipo.customLots[1]) ? parseInt(ipo.customLots[1].lot) || 14 : 14;
+
+    let retailTotalShares = retailLotCount * lotSizeNum;
+    let hniTotalShares = hniLotCount * lotSizeNum;
+
     const logoWrap = document.getElementById('d_logo_wrap');
     if (logoWrap) {
         const logoVal = ipo.logo ? ipo.logo.trim() : '';
@@ -534,7 +505,6 @@ async function loadDynamicIpoDetails() {
 
     if (document.getElementById('g_gmp')) document.getElementById('g_gmp').innerText = ipo.gmp ? `₹${ipo.gmp}` : 'N/A';
 
-    // ૧. Estimated Listing Price નું કેલ્ક્યુલેશન: (Issue/Cut-off Price + Latest GMP)
     const rawGmpVal = parseFloat(ipo.gmp) || 0;
     let issuePriceVal = cutOffPrice;
     if (!issuePriceVal && ipo.priceBand) {
@@ -547,9 +517,7 @@ async function loadDynamicIpoDetails() {
         document.getElementById('g_estprice').innerText = estimatedListingPriceCalc > 0 ? `₹${estimatedListingPriceCalc.toLocaleString('en-IN')}` : (ipo.estPrice || 'N/A');
     }
     
-    // ૨. રિટેલ એસ્ટીમેટેડ પ્રોફિટનું સાચું કેલ્ક્યુલેશન: (Latest GMP * Lot Size)
-    const retailLotSize = lotSizeNum || 26;
-    const exactRetailProfit = rawGmpVal * retailLotSize;
+    const exactRetailProfit = rawGmpVal * retailTotalShares;
     if (document.getElementById('g_profit')) {
         document.getElementById('g_profit').innerText = rawGmpVal > 0 ? `₹${exactRetailProfit.toLocaleString('en-IN')}` : 'N/A';
     }
@@ -557,8 +525,7 @@ async function loadDynamicIpoDetails() {
     if (document.getElementById('g_kostak')) document.getElementById('g_kostak').innerText = ipo.kostak || 'N/A';
     if (document.getElementById('g_ss')) document.getElementById('g_ss').innerText = ipo.ss || 'N/A';
 
-    const hniLotCount = (ipo.customLots && ipo.customLots[1]) ? ipo.customLots[1].lot : 14;
-    const hniProfitTotal = rawGmpVal * retailLotSize * hniLotCount;
+    const hniProfitTotal = rawGmpVal * hniTotalShares;
 
     if (document.getElementById('g_hni_profit')) {
         document.getElementById('g_hni_profit').innerText = `₹${hniProfitTotal.toLocaleString('en-IN')}`;
@@ -567,10 +534,8 @@ async function loadDynamicIpoDetails() {
     const reservationTbody = document.getElementById('reservationTableBody');
     if (reservationTbody) {
         reservationTbody.innerHTML = '';
-        
         let reservationData = (ipo.reservation && ipo.reservation.length > 0) ? [...ipo.reservation] : [];
 
-        // જો ડેટાબેઝમાં માત્ર રિટેલ અથવા અધૂરો ડેટા હોય, તો સ્ટાન્ડર્ડ ૩ કેટેગરી ઓટોમેટિક સેટ કરવી
         if (reservationData.length < 3) {
             reservationData = [
                 { category: "QIB", shares: "2,576,000", percentage: "50.00%" },
@@ -601,7 +566,8 @@ async function loadDynamicIpoDetails() {
                 totalOfferedShares += (row.off || 0);
                 totalAppliedShares += (row.app || 0);
             }
-            let times = row.off > 0 ? (row.app / row.off).toFixed(2) : '-';
+            
+            let times = (row.off > 0 && row.app > 0) ? (row.app / row.off).toFixed(2) : '-';
             let offText = row.off > 0 ? row.off.toLocaleString('en-IN') : '-';
             let appText = row.app > 0 ? row.app.toLocaleString('en-IN') : '-';
 
@@ -610,90 +576,149 @@ async function loadDynamicIpoDetails() {
                     <td style="text-align:left;">${row.cat}</td>
                     <td style="text-align:center;">${offText}</td>
                     <td style="text-align:center;">${appText}</td>
-                    <td style="text-align:center;">${times}</td>
+                    <td style="text-align:center; font-weight: 600;">${times !== '-' ? times + 'x' : '-'}</td>
                 </tr>
             `;
         });
 
-        let totalShareTimes = totalOfferedShares > 0 ? (totalAppliedShares / totalOfferedShares).toFixed(2) : '0.00';
+        let totalShareTimes = totalOfferedShares > 0 ? (totalAppliedShares / totalOfferedShares).toFixed(2) + 'x' : '0.00x';
         subSharesTbody.innerHTML += `
-            <tr class="total-row">
-                <td style="text-align:left;"><strong>Total</strong></td>
-                <td style="text-align:center;"><strong>${totalOfferedShares.toLocaleString('en-IN')}</strong></td>
-                <td style="text-align:center;"><strong>${totalAppliedShares.toLocaleString('en-IN')}</strong></td>
-                <td style="text-align:center;"><strong>${totalShareTimes}</strong></td>
+            <tr style="background-color: #f8fafc; font-weight: 700;">
+                <td style="text-align:left;">Total</td>
+                <td style="text-align:center;">${totalOfferedShares.toLocaleString('en-IN')}</td>
+                <td style="text-align:center;">${totalAppliedShares.toLocaleString('en-IN')}</td>
+                <td style="text-align:center; color: #1d4ed8;">${totalShareTimes}</td>
             </tr>
         `;
-    }
-
-    const subAppsTbody = document.getElementById('subAppsTableBody');
-    if (subAppsTbody) {
-        subAppsTbody.innerHTML = '';
-        const appsData = ipo.subApps || [];
-        appsData.forEach(row => {
-            let appTimes = row.off > 0 ? (row.app / row.off).toFixed(2) : '-';
-            let offAppText = row.off > 0 ? row.off.toLocaleString('en-IN') : '-';
-            let appAppText = row.app > 0 ? row.app.toLocaleString('en-IN') : '-';
-
-            subAppsTbody.innerHTML += `
-                <tr>
-                    <td style="text-align:left;">${row.cat}</td>
-                    <td style="text-align:center;">${offAppText}</td>
-                    <td style="text-align:center;">${appAppText}</td>
-                    <td style="text-align:center;">${appTimes}</td>
-                </tr>
-            `;
-        });
-    }
-
-    const finTbody = document.getElementById('financialsTableBody');
-    if (finTbody && ipo.fin) {
-        finTbody.innerHTML = '';
-        const fList = [ipo.fin.fy23, ipo.fin.fy24, ipo.fin.fy25, ipo.fin.fy26];
-        fList.forEach(f => {
-            if (f) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="text-align:left;"><strong>${f.yr || 'FY'}</strong></td>
-                    <td>${f.ast || '-'}</td>
-                    <td>${f.rev || '-'}</td>
-                    <td>${f.exp || '-'}</td>
-                    <td>${f.prf || '-'}</td>
-                `;
-                finTbody.appendChild(tr);
-            }
-        });
     }
 
     const lotBody = document.getElementById('lotMatrixBody');
     if (lotBody) {
         lotBody.innerHTML = '';
         
-        // ડેટાબેઝમાંથી કસ્ટમ લોટ્સ મેળવો અથવા ખાલી એરે રાખો
-        let lotsList = (ipo.customLots && ipo.customLots.length > 0) ? [...ipo.customLots] : [];
-
-        // જો ડેટાબેઝમાં ૩ કેટેગરી પૂરી ન હોય (દા.ત. જૂનો ડેટા હોય), તો ઓટોમેટિક સ્ટાન્ડર્ડ ૩ કેટેગરી સેટ કરી દો
-        if (lotsList.length < 3) {
-            lotsList = [
-                { app: "Retail Min", lot: lotsList[0] ? lotsList[0].lot : 1 },
-                { app: "Small HNI", lot: 14 },
-                { app: "Big HNI", lot: 68 }
-            ];
-        }
+        let lotsList = (ipo.customLots && ipo.customLots.length > 0) ? [...ipo.customLots] : [
+            { app: "Retail Min", lot: 1 },
+            { app: "Small HNI", lot: 14 },
+            { app: "Big HNI", lot: 68 }
+        ];
 
         lotsList.forEach(row => {
             const lotVal = parseInt(row.lot) || 1;
             const totalShares = lotVal * lotSizeNum;
             const totalAmt = totalShares * cutOffPrice;
             
+            lotBody.innerHTML += `
+                <tr>
+                    <td style="text-align:left;"><strong>${row.app}</strong></td>
+                    <td style="text-align:center;">${lotVal}</td>
+                    <td style="text-align:center;">${totalShares.toLocaleString('en-IN')}</td>
+                    <td style="text-align:center;">${totalAmt ? '₹' + totalAmt.toLocaleString('en-IN') : 'N/A'}</td>
+                </tr>
+            `;
+        });
+    }
+
+    const subAppsTbody = document.getElementById('subAppsTableBody');
+    if (subAppsTbody) {
+        subAppsTbody.innerHTML = '';
+        const appsData = ipo.subApps || [];
+        const lotSizeNum = ipo.lotRaw || parseInt(ipo.lotSize) || 1;
+
+        let retailTotalShares = lotSizeNum;
+        let sHniTotalShares = lotSizeNum * 14;
+        let bHniTotalShares = lotSizeNum * 68;
+
+        if (ipo.customLots && ipo.customLots.length > 0) {
+            ipo.customLots.forEach(cl => {
+                const appName = cl.app ? cl.app.toLowerCase() : '';
+                const lotVal = parseInt(cl.lot) || 1;
+                const totalSh = lotVal * lotSizeNum;
+
+                if (appName.includes('retail')) {
+                    retailTotalShares = totalSh;
+                } else if (appName.includes('small') || appName.includes('s-nii')) {
+                    sHniTotalShares = totalSh;
+                } else if (appName.includes('big') || appName.includes('b-nii')) {
+                    bHniTotalShares = totalSh;
+                }
+            });
+        }
+
+        let calculatedApps = [];
+        if (ipo.subShares && ipo.subShares.length > 0) {
+            ipo.subShares.forEach(s => {
+                if (s.cat === "B-NII(₹10L+)" || s.cat === "S-NII(₹2-10L)" || s.cat === "Retail") {
+                    calculatedApps.push({ cat: s.cat, off: s.off || 0, app: s.app || 0 });
+                }
+            });
+        } else if (appsData.length > 0) {
+            calculatedApps = appsData;
+        }
+
+        if (calculatedApps.length === 0) {
+            calculatedApps = [
+                { cat: "B-NII(₹10L+)", off: 0, app: 0 },
+                { cat: "S-NII(₹2-10L)", off: 0, app: 0 },
+                { cat: "Retail", off: 0, app: 0 }
+            ];
+        }
+
+        calculatedApps.forEach(row => {
+            let reserveDivisor = retailTotalShares;
+            let appliedDivisor = retailTotalShares;
+
+            if (row.cat.includes("B-NII")) {
+                reserveDivisor = sHniTotalShares;
+                appliedDivisor = bHniTotalShares;
+            } else if (row.cat.includes("S-NII")) {
+                reserveDivisor = sHniTotalShares;
+                appliedDivisor = sHniTotalShares;
+            } else if (row.cat.includes("Retail")) {
+                reserveDivisor = retailTotalShares;
+                appliedDivisor = retailTotalShares;
+            }
+
+            let reserveApps = (row.off > 0 && reserveDivisor > 0) ? Math.round(row.off / reserveDivisor) : '-';
+            let appliedApps = (row.app > 0 && appliedDivisor > 0) ? Math.round(row.app / appliedDivisor) : '-';
+            
+            let appTimes = (typeof reserveApps === 'number' && typeof appliedApps === 'number' && reserveApps > 0) ? (appliedApps / reserveApps).toFixed(2) : '-';
+
+            let resText = typeof reserveApps === 'number' ? reserveApps.toLocaleString('en-IN') : '-';
+            let appText = typeof appliedApps === 'number' ? appliedApps.toLocaleString('en-IN') : '-';
+
+            subAppsTbody.innerHTML += `
+                <tr>
+                    <td style="text-align:left;">${row.cat}</td>
+                    <td style="text-align:center;">${resText}</td>
+                    <td style="text-align:center;">${appText}</td>
+                    <td style="text-align:center; font-weight: 600;">${appTimes !== '-' ? appTimes + 'x' : '-'}</td>
+                </tr>
+            `;
+        });
+    }
+
+    // Company Financials rendering fix
+    const finTbody = document.getElementById('financialsTableBody');
+    if (finTbody && ipo.fin) {
+        finTbody.innerHTML = '';
+        const finObj = ipo.fin || {};
+        const fList = [
+            finObj.fy23 || { yr: "FY-2023", ast: "-", rev: "-", exp: "-", prf: "-" },
+            finObj.fy24 || { yr: "FY-2024", ast: "-", rev: "-", exp: "-", prf: "-" },
+            finObj.fy25 || { yr: "FY-2025", ast: "-", rev: "-", exp: "-", prf: "-" },
+            finObj.fy26 || { yr: "FY-2026", ast: "-", rev: "-", exp: "-", prf: "-" }
+        ];
+
+        fList.forEach(f => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="text-align:left;"><strong>${row.app}</strong></td>
-                <td style="text-align:center;">${lotVal}</td>
-                <td style="text-align:center;">${totalShares.toLocaleString('en-IN')}</td>
-                <td style="text-align:center;">${totalAmt ? '₹' + totalAmt.toLocaleString('en-IN') : 'N/A'}</td>
+                <td style="text-align:left;"><strong>${f.yr || 'FY'}</strong></td>
+                <td style="text-align:center;">${f.ast || '-'}</td>
+                <td style="text-align:center;">${f.rev || '-'}</td>
+                <td style="text-align:center;">${f.exp || '-'}</td>
+                <td style="text-align:center;">${f.prf || '-'}</td>
             `;
-            lotBody.appendChild(tr);
+            finTbody.appendChild(tr);
         });
     }
 
@@ -709,13 +734,12 @@ async function loadDynamicIpoDetails() {
     if (document.getElementById('qs_priceband')) {
         document.getElementById('qs_priceband').innerText = ipo.priceBand ? `₹${ipo.priceBand}` : 'N/A';
         
-        const retailLot = ipo.lotSize || (lotSizeNum + " Shares");
-        const hniLotText = (ipo.customLots && ipo.customLots[1]) ? `${ipo.customLots[1].lot * lotSizeNum} Shares (${ipo.customLots[1].lot} Lots)` : '-';
-        document.getElementById('qs_lotsize').innerHTML = `Retail: <strong>${retailLot}</strong><br>HNI: <strong>${hniLotText}</strong>`;
+        document.getElementById('qs_lotsize').innerHTML = `Retail: <strong>${retailTotalShares.toLocaleString('en-IN')} Shares</strong><br>HNI: <strong>${hniTotalShares.toLocaleString('en-IN')} Shares (${hniLotCount} Lots)</strong>`;
 
-        const retailMinInv = minInvestCalc ? `₹${minInvestCalc.toLocaleString('en-IN')}` : 'N/A';
-        const hniMinInv = cutOffPrice ? `₹${(hniLotCount * lotSizeNum * cutOffPrice).toLocaleString('en-IN')}` : 'N/A';
-        document.getElementById('qs_investment').innerHTML = `Retail: <strong>${retailMinInv}</strong><br>HNI: <strong>${hniMinInv}</strong>`;
+        let retailTotalInv = retailTotalShares * cutOffPrice;
+        let hniTotalInv = hniTotalShares * cutOffPrice;
+
+        document.getElementById('qs_investment').innerHTML = `Retail: <strong>₹${retailTotalInv.toLocaleString('en-IN')}</strong><br>HNI: <strong>₹${hniTotalInv.toLocaleString('en-IN')}</strong>`;
 
         let totalOff = 0, totalApp = 0;
         if (ipo.subShares) {
@@ -733,34 +757,30 @@ async function loadDynamicIpoDetails() {
         const gmpPct = upperPriceVal > 0 ? ((rawGmpVal / upperPriceVal) * 100).toFixed(1) : '0.0';
         document.getElementById('qs_gmp').innerHTML = `₹${rawGmpVal} <span style="font-size:11px; color:#166534;">(+${gmpPct}%)</span>`;
 
-        const retailProfitPerLot = rawGmpVal * lotSizeNum;
-        document.getElementById('qs_profit').innerHTML = `Retail: <strong style="color: #166534;">₹${retailProfitPerLot.toLocaleString('en-IN')}</strong><br>HNI: <strong style="color: #166534;">₹${hniProfitTotal.toLocaleString('en-IN')}</strong>`;
+        document.getElementById('qs_profit').innerHTML = `Retail: <strong style="color: #166534;">₹${exactRetailProfit.toLocaleString('en-IN')}</strong><br>HNI: <strong style="color: #166534;">₹${hniProfitTotal.toLocaleString('en-IN')}</strong>`;
 
         const currentStatusObj = getIpoStatus(ipo.openDate, ipo.closeDate, ipo.allotmentDate, ipo.listingDate, ipo.isAllotmentOut);
         document.getElementById('qs_status').innerHTML = `<span class="${currentStatusObj.class}" style="padding: 4px 10px; border-radius: 20px; font-size: 11.5px; display: inline-block;">${currentStatusObj.text}</span>`;
-        // અલોટમેન્ટ સ્ટેટસ અને ચેક બટન માટેનું લોજિક
-// script.js માં loadDynamicIpoDetails() ફંક્શનની અંદર:
-const allotmentCell = document.getElementById('qs_allotment_btn');
-if (allotmentCell) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const allotDate = ipo.allotmentDate ? new Date(ipo.allotmentDate) : null;
-    if (allotDate) allotDate.setHours(0, 0, 0, 0);
+        
+        const allotmentCell = document.getElementById('qs_allotment_btn');
+        if (allotmentCell) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const allotDate = ipo.allotmentDate ? new Date(ipo.allotmentDate) : null;
+            if (allotDate) allotDate.setHours(0, 0, 0, 0);
 
-    // ૧. જો એડમિન પેનલમાંથી 'Mark Allotment Out' ઓન કર્યું હોય અથવા અલોટમેન્ટ તારીખ આવી ગઈ હોય/પસાર થઈ ગઈ હોય
-    if (ipo.isAllotmentOut === true || (allotDate && today >= allotDate)) {
-        const regLink = ipo.registrarUrl || (ipo.regWeb ? `https://${ipo.regWeb}` : '#');
-        allotmentCell.innerHTML = `
-            <a href="${regLink}" target="_blank" style="background-color: #16a34a; color: #ffffff; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                🔍 Check Allotment
-            </a>
-        `;
-    } else {
-        // ૨. જ્યાં સુધી અલોટમેન્ટ તારીખ નથી આવી ત્યાં સુધી વેટિંગ બતાવશે
-        allotmentCell.innerHTML = `<span style="color: #c2410c; background-color: #ffedd5; padding: 3px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 700;">Waiting</span>`;
-    }
-}
+            if (ipo.isAllotmentOut === true || (allotDate && today >= allotDate)) {
+                const regLink = ipo.registrarUrl || (ipo.regWeb ? `https://${ipo.regWeb}` : '#');
+                allotmentCell.innerHTML = `
+                    <a href="${regLink}" target="_blank" style="background-color: #16a34a; color: #ffffff; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        🔍 Check Allotment
+                    </a>
+                `;
+            } else {
+                allotmentCell.innerHTML = `<span style="color: #c2410c; background-color: #ffedd5; padding: 3px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 700;">Waiting</span>`;
+            }
+        }
     }
 }
 
@@ -826,8 +846,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem(DATA_VERSION_KEY, CURRENT_VERSION);
     }
 
-    // પેજ મુજબ ડેટા લોડ થશે
-    if (document.getElementById('homeTableBody')) {
+    if (document.getElementById('homeTableButton') || document.getElementById('homeTableBody')) {
         await loadHomeIpoTable();
     }
     if (document.getElementById('calendarTableBody')) {
@@ -837,46 +856,3 @@ window.addEventListener('DOMContentLoaded', async () => {
         await loadDynamicIpoDetails();
     }
 });
-
-function getIpoStatus(openStr, closeStr, allotStr, listStr, isAllotmentOut) {
-    // જો એડમિન પેનલમાંથી અલોટમેન્ટ આઉટ ટીક કરેલું હોય તો સર્વોપરી એ જ બતાવશે
-    if (isAllotmentOut === true) {
-        return { text: "Allotment Out", class: "status-allotment-parrot" };
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const openDate = openStr ? new Date(openStr) : null;
-    const closeDate = closeStr ? new Date(closeStr) : null;
-    const allotDate = allotStr ? new Date(allotStr) : null;
-    const listDate = listStr ? new Date(listStr) : null;
-
-    if (openDate) openDate.setHours(0, 0, 0, 0);
-    if (closeDate) closeDate.setHours(0, 0, 0, 0);
-    if (allotDate) allotDate.setHours(0, 0, 0, 0);
-    if (listDate) listDate.setHours(0, 0, 0, 0);
-
-    // ૧. જો આજની તારીખ ઓપન ડેટ કરતા વહેલી હોય -> Upcoming
-    if (openDate && today < openDate) {
-        return { text: "Upcoming", class: "status-upcoming-green" };
-    } 
-    // ૨. જો આજની તારીખ ઓપન અને ક્લોઝ ડેટની વચ્ચે અથવા તે જ દિવસે હોય -> Live
-    else if (openDate && closeDate && today >= openDate && today <= closeDate) {
-        return { text: "🔴 Live", class: "status-live-blinking" };
-    } 
-    // ૩. જો ક્લોઝ ડેટ વીતી ગઈ હોય અને અલોટમેન્ટ તારીખ કે લિસ્ટિંગ તારીખ હજી ન આવી હોય -> Allotment Waiting
-    else if (closeDate && today > closeDate && (!listDate || today < listDate)) {
-        return { text: "Allotment Waiting", class: "status-waiting-orange" };
-    } 
-    // ૪. જો આજની તારીખ બરાબર લિસ્ટિંગ તારીખ હોય -> Listing Today 🚀
-    else if (listDate && today.getTime() === listDate.getTime()) {
-        return { text: "Listing Today 🚀", class: "status-listing-indigo" };
-    } 
-    // ૫. જો લિસ્ટિંગ તારીખ વીતી ગઈ હોય -> Listed
-    else if (listDate && today > listDate) {
-        return { text: "Listed", class: "status-listed-slate" };
-    }
-
-    return { text: "Closed", class: "status-listed-slate" };
-}

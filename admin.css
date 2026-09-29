@@ -169,19 +169,41 @@ body {
 .form-drawer-body { padding: 20px 24px; }
 
 .form-section-title { font-size: 14px; font-weight: 700; color: #1e293b; margin: 20px 0 10px 0; border-left: 3px solid #0284c7; padding-left: 8px; background: #f8fafc; padding-top: 8px; padding-bottom: 8px; border-radius: 0 6px 6px 0; }
-.form-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(200px, 1fr)); gap: 15px; margin-bottom: 12px; }
-.form-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(250px, 1fr)); gap: 15px; margin-bottom: 12px; }
+
+.form-grid-4 { 
+    display: grid; 
+    grid-template-columns: repeat(4, minmax(140px, 1fr)); 
+    gap: 8px; 
+    margin-bottom: 8px; 
+}
+.form-grid-3 { 
+    display: grid; 
+    grid-template-columns: repeat(3, minmax(200px, 1fr)); 
+    gap: 8px; 
+    margin-bottom: 8px; 
+}
+.form-grid-2 { 
+    display: grid; 
+    grid-template-columns: repeat(2, minmax(250px, 1fr)); 
+    gap: 8px; 
+    margin-bottom: 8px; 
+}
 
 /* Dark and Bold Labels for Inputs */
 .form-group label {
     display: block;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #0f172a;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
 }
-.form-group input, .form-group select, .form-group textarea { 
+
+/* 🎯 ફોર્મના તમામ ઇનપુટ, સિલેક્ટ અને ડેટ બોક્સની સાઈઝ પ્રોપર કંટ્રોલ કરવા માટે */
+.form-group input, 
+.form-group select, 
+.form-group textarea { 
     width: 100%; 
+    max-width: 220px; /* અહીંથી તમે બોક્સની મહત્તમ પહોળાઈ કંટ્રોલ કરી શકો છો */
     padding: 8px 10px; 
     border: 1px solid #cbd5e1; 
     border-radius: 6px; 
@@ -189,6 +211,12 @@ body {
     outline: none; 
     box-sizing: border-box;
 }
+
+/* જે ઇનપુટ પૂરી લાઈનમાં રાખવાના હોય (જેવા કે 'About Company') તેના માટે */
+.form-group textarea {
+    max-width: 100% !important;
+}
+
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
     border-color: #0284c7;
     box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
@@ -197,9 +225,10 @@ body {
 
 @media(max-width: 1024px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .form-grid-4 { grid-template-columns: repeat(2, 1fr); }
     .form-grid-3 { grid-template-columns: 1fr; }
     .admin-main { margin-left: 0; padding: 15px; }
-    .admin-sidebar { width: 70px; /* અથવા મોબાઈલ માટે વ્યવસ્થા મુજબ */ }
+    .admin-sidebar { width: 70px; }
 }
 
 /* Precise Financial Table Alignment */
@@ -237,14 +266,30 @@ body {
     border-color: #0284c7;
     box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
 }
-/* તારીખ અને નાના ઇનપુટ બોક્સની સાઈઝ મર્યાદિત કરવા માટે */
-.form-group input[type="date"],
-.form-group input[type="text"] {
-    max-width: 280px; /* અહીંથી તમે બોક્સની મહત્તમ પહોળાઈ ઘટાડી શકો છો */
+/* ટેબલની અંદરના ફોન્ટ સાઈઝ નાના કરવા માટે */
+.admin-table th {
+    font-size: 12px !important;
+    padding: 10px 10px !important;
 }
 
-/* જો ડેટ ઇનપુટ માટે ફોર્મ ગ્રીડ ૩ કે ૪ કૉલમમાં હોય તો તેના પરફેક્ટ દેખાવ માટે */
-.form-group input[type="date"] {
-    width: 100%;
+.admin-table td {
+    font-size: 12px !important;
+    padding: 10px 10px !important;
 }
 
+/* ડેશબોર્ડના હેડિંગ અને ટાઇટલની સાઈઝ થોડી કಾಂપેક્ટ કરવા માટે */
+.top-header-bar h1 {
+    font-size: 20px !important;
+}
+
+.top-header-bar p {
+    font-size: 12px !important;
+}
+
+.stat-card-value {
+    font-size: 20px !important;
+}
+
+.content-card-header h3 {
+    font-size: 15px !important;
+}
