@@ -143,10 +143,6 @@ function formatIssueSizeWithAmount(rawShares, price) {
 }
 
 function getIpoStatus(openStr, closeStr, allotStr, listStr, isAllotmentOut) {
-    if (isAllotmentOut === true) {
-        return { text: "Allotment Out", class: "status-allotment-parrot" };
-    }
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -160,16 +156,28 @@ function getIpoStatus(openStr, closeStr, allotStr, listStr, isAllotmentOut) {
     if (allotDate) allotDate.setHours(0, 0, 0, 0);
     if (listDate) listDate.setHours(0, 0, 0, 0);
 
+    // ૧. લિસ્ટિંગ તારીખ વીતી ગઈ હોય તો હંમેશા 'Listed'
+    if (listDate && today > listDate) {
+        return { text: "Listed", class: "status-listed-slate" };
+    }
+
+    // ૨. લિસ્ટિંગનો દિવસ હોય તો 'Listing Today'
+    if (listDate && today.getTime() === listDate.getTime()) {
+        return { text: "Listing Today 🚀", class: "status-listing-indigo" };
+    }
+
+    // ૩. લિસ્ટિંગ પહેલાં જો અલોટમેન્ટ બહાર આવી ગયું હોય (Checkbox Tick હોય)
+    if (isAllotmentOut === true) {
+        return { text: "Allotment Out", class: "status-allotment-parrot" };
+    }
+
+    // ૪. બાકીના સામાન્ય દિવસો માટેનું ટાઈમલાઈન લોજિક
     if (openDate && today < openDate) {
         return { text: "Upcoming", class: "status-upcoming-green" };
     } else if (openDate && closeDate && today >= openDate && today <= closeDate) {
         return { text: "🔴 Live", class: "status-live-blinking" };
     } else if (closeDate && today > closeDate && (!listDate || today < listDate)) {
         return { text: "Allotment Waiting", class: "status-waiting-orange" };
-    } else if (listDate && today.getTime() === listDate.getTime()) {
-        return { text: "Listing Today 🚀", class: "status-listing-indigo" };
-    } else if (listDate && today > listDate) {
-        return { text: "Listed", class: "status-listed-slate" };
     }
 
     return { text: "Closed", class: "status-listed-slate" };
@@ -534,22 +542,38 @@ async function loadDynamicIpoDetails() {
     const reservationTbody = document.getElementById('reservationTableBody');
     if (reservationTbody) {
         reservationTbody.innerHTML = '';
-        let reservationData = (ipo.reservation && ipo.reservation.length > 0) ? [...ipo.reservation] : [];
-
-        if (reservationData.length < 3) {
-            reservationData = [
-                { category: "QIB", shares: "2,576,000", percentage: "50.00%" },
-                { category: "NII (HNI)", shares: "772,800", percentage: "15.00%" },
-                { category: "Retail", shares: reservationData[0] ? reservationData[0].shares : "1,803,200", percentage: reservationData[0] ? reservationData[0].percentage : "35.00%" }
-            ];
+        
+        // ૧. કુલ શેર્સની સંખ્યા મેળવો (Total Issue Size માંથી)
+        let totalSharesCount = 0;
+        if (ipo.totalSize) {
+            // જો totalSize માંથી માત્ર આંકડા કાઢવાના હોય
+            let rawTotal = ipo.totalSize.replace(/[^0-9]/g, '');
+            // અથવા જો તમે lotRaw કે બીજા કોઈ ફોર્મેટમાં રાખતા હોવ તો તેને અનુરૂપ
+        }
+        
+        // જો totalSize સીધી જ આંકડાકીય કે શેરમાં હોય તો તેને parse કરો (અથવા lotRaw અને customLots પરથી કુલ શેર ગણો)
+        let baseShares = parseFloat(ipo.lotRaw) * 100000 || 5152000; // અંદાજિત અથવા માસ્ટર ડેટામાંથી કુલ શેર્સ
+        if (ipo.totalSize && !isNaN(parseFloat(ipo.totalSize.replace(/,/g, '')))) {
+            baseShares = parseFloat(ipo.totalSize.replace(/,/g, ''));
         }
 
+        let reservationData = (ipo.reservation && ipo.reservation.length > 0) ? [...ipo.reservation] : [
+            { category: "QIB", percentage: "50%" },
+            { category: "NII (HNI)", percentage: "15%" },
+            { category: "Retail", percentage: "35%" }
+        ];
+
         reservationData.forEach(row => {
+            // પર્સન્ટેજ કાઢીને ટકાવારી મુજબ શેર્સ ગણો
+            let pct = parseFloat(row.percentage) || 0;
+            let calculatedShares = Math.round((baseShares * pct) / 100);
+            let formattedShares = calculatedShares > 0 ? calculatedShares.toLocaleString('en-IN') : row.shares || '0';
+
             reservationTbody.innerHTML += `
                 <tr>
                     <td style="text-align:left;"><strong>${row.category}</strong></td>
-                    <td style="text-align:center;">${row.shares}</td>
                     <td style="text-align:center;">${row.percentage}</td>
+                    <td style="text-align:center;">${formattedShares}</td>
                 </tr>
             `;
         });
@@ -722,13 +746,51 @@ async function loadDynamicIpoDetails() {
         });
     }
 
-    if (document.getElementById('reg_name')) document.getElementById('reg_name').innerText = ipo.regName || "Link Intime India Private Ltd";
-    const webEl = document.getElementById('reg_web');
-    if (webEl) {
-        webEl.innerText = ipo.regWeb || "linkintime.co.in";
-        webEl.href = "https://" + (ipo.regWeb || "linkintime.co.in");
+    // ==========================================
+    // IPO Registrar (Dynamic Sync from Manage Registrars)
+    // ==========================================
+    const savedRegistrars = JSON.parse(localStorage.getItem('live_ipo_registrars')) || [];
+    let matchedReg = savedRegistrars.find(r => r.url === ipo.registrarUrl || r.name === ipo.regName);
+
+    if (matchedReg) {
+        if (document.getElementById('reg_name')) document.getElementById('reg_name').innerText = matchedReg.name || 'N/A';
+        
+        const webEl = document.getElementById('reg_web');
+        if (webEl) {
+            webEl.innerText = matchedReg.website || matchedReg.url || 'N/A';
+            webEl.href = matchedReg.url || '#';
+        }
+
+        if (document.getElementById('reg_mobile')) document.getElementById('reg_mobile').innerText = matchedReg.mobile || 'N/A';
+
+        const emailEl = document.getElementById('reg_email');
+        if (emailEl) {
+            emailEl.innerText = matchedReg.email || 'N/A';
+            emailEl.href = matchedReg.email ? `mailto:${matchedReg.email}` : '#';
+        }
+
+        const allotUrlEl = document.getElementById('reg_allotment_url');
+        if (allotUrlEl) {
+            allotUrlEl.href = ipo.registrarUrl || matchedReg.url || '#';
+            allotUrlEl.innerHTML = "🔍 Check Allotment";
+        }
+    } else {
+        if (document.getElementById('reg_name')) document.getElementById('reg_name').innerText = ipo.regName || "Link Intime India Private Ltd";
+        const webEl = document.getElementById('reg_web');
+        if (webEl) {
+            webEl.innerText = ipo.regWeb || "linkintime.co.in";
+            webEl.href = ipo.registrarUrl || "https://" + (ipo.regWeb || "#");
+        }
+        if (document.getElementById('reg_mobile')) document.getElementById('reg_mobile').innerText = ipo.regMobile || 'N/A';
+        if (document.getElementById('reg_email')) document.getElementById('reg_email').innerText = ipo.regEmail || "ipo@linkintime.co.in";
+        
+        const allotUrlEl = document.getElementById('reg_allotment_url');
+        if (allotUrlEl) {
+            allotUrlEl.href = ipo.registrarUrl || '#';
+            allotUrlEl.innerText = "Click to Check Allotment ↗";
+        }
     }
-    if (document.getElementById('reg_email')) document.getElementById('reg_email').innerText = ipo.regEmail || "ipo@linkintime.co.in";
+
     if (document.getElementById('reg_leads')) document.getElementById('reg_leads').innerText = ipo.leadManagers || "Kotak Mahindra Capital, Axis Capital";
 
     if (document.getElementById('qs_priceband')) {
@@ -856,3 +918,56 @@ window.addEventListener('DOMContentLoaded', async () => {
         await loadDynamicIpoDetails();
     }
 });
+
+// ચિત્તોડગઢ પરથી સબસ્ક્રિપ્શન ડેટા ઓટોમેટિક ફેચ કરવા માટેનું ફંક્શન
+async function fetchChittorgarhData(chittorgarhKey) {
+    if (!chittorgarhKey) return null;
+    try {
+        // chittorgarhKey ઉદાહરણ તરીકે: /ipo/purple-style-labs-ipo/1782/
+        let targetUrl = `https://www.chittorgarh.com/ipo_subscription${chittorgarhKey}`;
+        let proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+
+        let response = await fetch(proxyUrl);
+        if (!response.ok) return null;
+
+        let data = await response.json();
+        let htmlText = data.contents;
+
+        // HTML ને પાર્સ કરવા માટે DOMParser નો ઉપયોગ
+        let parser = new DOMParser();
+        let doc = parser.parseFromString(htmlText, 'text/html');
+
+        // ચિત્તોડગઢના પેજ પરથી સબસ્ક્રિપ્શન ટેબલ શોધો
+        let tables = doc.querySelectorAll('table');
+        if (tables.length < 2) return null;
+
+        let subTable = tables[1]; // સામાન્ય રીતે બીજું ટેબલ સબસ્ક્રિપ્શનનું હોય છે
+        let rows = subTable.querySelectorAll('tbody tr');
+        
+        let scrapedData = {};
+
+        rows.forEach(row => {
+            let cols = row.querySelectorAll('td');
+            if (cols.length >= 4) {
+                let category = cols[0].textContent.trim().replace(/[\s*]/g, "").toLowerCase();
+                let offered = cols[1].textContent.trim().replace(/,/g, '');
+                let applied = cols[2].textContent.trim().replace(/,/g, '');
+                let times = cols[3].textContent.trim().replace(/,/g, '');
+
+                // કેટેગરી મુજબ મેપિંગ
+                if (category.includes('qib')) {
+                    scrapedData['QIB'] = { off: parseFloat(offered) || 0, app: parseFloat(applied) || 0, times: parseFloat(times) || 0 };
+                } else if (category.includes('non') || category.includes('nii')) {
+                    scrapedData['NII'] = { off: parseFloat(offered) || 0, app: parseFloat(applied) || 0, times: parseFloat(times) || 0 };
+                } else if (category.includes('retail')) {
+                    scrapedData['Retail'] = { off: parseFloat(offered) || 0, app: parseFloat(applied) || 0, times: parseFloat(times) || 0 };
+                }
+            }
+        });
+
+        return scrapedData;
+    } catch (error) {
+        console.error("Chittorgarh fetch error:", error);
+        return null;
+    }
+}

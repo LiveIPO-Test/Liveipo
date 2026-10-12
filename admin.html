@@ -65,10 +65,18 @@
                 style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                 <div style="font-size: 13.5px; font-weight: 700; color: #0f172a; margin-bottom: 10px;">➕ Add New
                     Registrar</div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px;">
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr) auto; gap: 10px; margin-bottom: 10px;">
                     <input type="text" id="manageNewRegName" placeholder="Registrar Name (e.g. Skyline Financial)"
                         style="padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
-                    <input type="text" id="manageNewRegUrl" placeholder="Registrar URL (https://...)"
+                    <input type="text" id="manageNewRegWeb" placeholder="Registrar Website (e.g. linkintime.co.in)"
+                        style="padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px;">
+                    <input type="text" id="manageNewRegMobile" placeholder="Mobile / Contact Number"
+                        style="padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                    <input type="email" id="manageNewRegEmail" placeholder="Email ID (e.g. ipo@linkintime.co.in)"
+                        style="padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                    <input type="text" id="manageNewRegUrl" placeholder="Allotment URL (https://...)"
                         style="padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
                     <button type="button" onclick="addNewRegistrarFromManager()"
                         style="background: #166534; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">Save
@@ -80,7 +88,10 @@
                     <thead>
                         <tr>
                             <th>Registrar Name</th>
-                            <th>Registrar Allotment URL</th>
+                            <th>Website</th>
+                            <th>Mobile Number</th>
+                            <th>Email ID</th>
+                            <th>Allotment URL</th>
                             <th style="text-align: center;">Actions</th>
                         </tr>
                     </thead>
@@ -88,6 +99,65 @@
                         <!-- Dynamic Registrar Rows -->
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Registrar Edit Modal/Box -->
+        <div id="registrarEditModal"
+            style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+            <div
+                style="background: #ffffff; width: 100%; max-width: 500px; border-radius: 12px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                    <h3 style="margin: 0; font-size: 18px; color: #0f172a;">✏️ Edit Registrar Details</h3>
+                    <button type="button" onclick="closeRegistrarModal()"
+                        style="background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b;">×</button>
+                </div>
+                <input type="hidden" id="editRegIndex">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div>
+                        <label
+                            style="font-size: 13px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Registrar
+                            Name</label>
+                        <input type="text" id="editRegName"
+                            style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label
+                            style="font-size: 13px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Registrar
+                            Website</label>
+                        <input type="text" id="editRegWeb"
+                            style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label
+                            style="font-size: 13px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Mobile
+                            / Contact Number</label>
+                        <input type="text" id="editRegMobile"
+                            style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label
+                            style="font-size: 13px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Email
+                            ID</label>
+                        <input type="email" id="editRegEmail"
+                            style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label
+                            style="font-size: 13px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Allotment
+                            URL</label>
+                        <input type="text" id="editRegUrl"
+                            style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; box-sizing: border-box;">
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button type="button" onclick="saveUpdatedRegistrar()"
+                            style="background: #166534; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; flex: 1;">Save
+                            Changes</button>
+                        <button type="button" onclick="closeRegistrarModal()"
+                            style="background: #64748b; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer;">Cancel</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -572,6 +642,42 @@
                         </table>
                     </div>
 
+                    <div style="margin-bottom: 15px;">
+    <label style="font-size: 13px; font-weight: 600; color: #475569; display: block; margin-bottom: 5px;">Chittorgarh IPO Key / URL Path</label>
+    <input type="text" id="adm_chittorgarhKey" placeholder="e.g. /ipo/purple-style-labs-ipo/1782/" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+    <span style="font-size: 11px; color: #64748b;">આ કી નાખવાથી સબસ્ક્રિપ્શન ડેટા ઓટોમેટિક ફેચ થઈ શકશે.</span>
+</div>
+
+                    <!-- IPO Reservation Quota Section -->
+                    <div
+                        style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                        <div style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 12px;">🎯 IPO
+                            Reservation Quota (% of Total Issue)</div>
+
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                            <div>
+                                <label
+                                    style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">QIB
+                                    (%)</label>
+                                <input type="number" id="res_qib" placeholder="e.g. 50"
+                                    style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label
+                                    style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">NII
+                                    / HNI (%)</label>
+                                <input type="number" id="res_nii" placeholder="e.g. 15"
+                                    style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label
+                                    style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Retail
+                                    (%)</label>
+                                <input type="number" id="res_retail" placeholder="e.g. 35"
+                                    style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="form-actions">
                         <button type="submit" class="btn-add-ipo" id="saveBtn">💾 Save & Publish IPO</button>

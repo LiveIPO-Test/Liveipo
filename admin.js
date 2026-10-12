@@ -107,11 +107,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 estPrice: document.getElementById('adm_estPrice').value,
                 bookProfit: document.getElementById('adm_bookProfit').value,
                 
+                // Chittorgarh Key સેવ કરવા માટે
+                chittorgarhKey: document.getElementById('adm_chittorgarhKey')?.value.trim() || '',
+                
                 isAllotmentOut: document.getElementById('adm_isAllotmentOut').checked,
                 registrarUrl: document.getElementById('adm_allotmentLink').value || document.getElementById('adm_registrarSelect').value || '',
                 
                 valuation: existingIpo.valuation || { eps: "₹15.00", pe: "35.00x", ronw: "20.00%", nav: "₹50.00", ebitdaMargin: "15.00%", patMargin: "8.00%" },
-                reservation: existingIpo.reservation || [{ category: "Retail", shares: "35%", percentage: "35.00%" }],
+                
+                // રિઝર્વેશન પર્સન્ટેજ ડેટા સેવ કરવા માટે
+                reservation: [
+                    { category: "QIB", percentage: (document.getElementById('res_qib')?.value || '50') + "%" },
+                    { category: "NII (HNI)", percentage: (document.getElementById('res_nii')?.value || '15') + "%" },
+                    { category: "Retail", percentage: (document.getElementById('res_retail')?.value || '35') + "%" }
+                ],
                 
                 // સબસ્ક્રિપ્શન શેર ડેટા સેવ કરવા માટે
                 subShares: [
@@ -220,10 +229,6 @@ async function saveAdminDataToCloud(dbData) {
 // IPO સ્ટેટસ નક્કી કરવા માટેનું કોમન ફંક્શન
 // ==========================================
 function getIpoStatus(openStr, closeStr, allotStr, listStr, isAllotmentOut) {
-    if (isAllotmentOut === true) {
-        return { text: "Allotment Out", class: "status-allotment-parrot" };
-    }
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -237,16 +242,28 @@ function getIpoStatus(openStr, closeStr, allotStr, listStr, isAllotmentOut) {
     if (allotDate) allotDate.setHours(0, 0, 0, 0);
     if (listDate) listDate.setHours(0, 0, 0, 0);
 
+    // ૧. લિસ્ટિંગ તારીખ વીતી ગઈ હોય તો હંમેશા 'Listed'
+    if (listDate && today > listDate) {
+        return { text: "Listed", class: "status-listed-slate" };
+    }
+
+    // ૨. લિસ્ટિંગનો દિવસ હોય તો 'Listing Today'
+    if (listDate && today.getTime() === listDate.getTime()) {
+        return { text: "Listing Today 🚀", class: "status-listing-indigo" };
+    }
+
+    // ૩. લિસ્ટિંગ પહેલાં જો અલોટમેન્ટ બહાર આવી ગયું હોય (Checkbox Tick હોય)
+    if (isAllotmentOut === true) {
+        return { text: "Allotment Out", class: "status-allotment-parrot" };
+    }
+
+    // ૪. બાકીના સામાન્ય દિવસો માટેનું ટાઈમલાઈન લોજિક
     if (openDate && today < openDate) {
         return { text: "Upcoming", class: "status-upcoming-green" };
     } else if (openDate && closeDate && today >= openDate && today <= closeDate) {
         return { text: "🔴 Live", class: "status-live-blinking" };
     } else if (closeDate && today > closeDate && (!listDate || today < listDate)) {
         return { text: "Allotment Waiting", class: "status-waiting-orange" };
-    } else if (listDate && today.getTime() === listDate.getTime()) {
-        return { text: "Listing Today 🚀", class: "status-listing-indigo" };
-    } else if (listDate && today > listDate) {
-        return { text: "Listed", class: "status-listed-slate" };
     }
 
     return { text: "Closed", class: "status-listed-slate" };
@@ -382,6 +399,12 @@ function openAddDrawer() {
         admId.readOnly = false;
     }
 
+    // નવા IPO વખતે પર્સન્ટેજ અને ચિતોડગઢ કી બોક્સ ખાલી રાખવા
+    if (document.getElementById('res_qib')) document.getElementById('res_qib').value = '';
+    if (document.getElementById('res_nii')) document.getElementById('res_nii').value = '';
+    if (document.getElementById('res_retail')) document.getElementById('res_retail').value = '';
+    if (document.getElementById('adm_chittorgarhKey')) document.getElementById('adm_chittorgarhKey').value = '';
+
     const drawerTitle = document.getElementById('drawerTitle');
     const saveBtn = document.getElementById('saveBtn');
     if (drawerTitle) drawerTitle.innerText = '➕ Add New IPO Complete Profile';
@@ -437,6 +460,26 @@ async function editIpo(id) {
     document.getElementById('adm_gmp').value = ipo.gmp || '';
     document.getElementById('adm_estPrice').value = ipo.estPrice || '';
     document.getElementById('adm_bookProfit').value = ipo.bookProfit || '';
+    
+    // Chittorgarh Key લોડ કરવા માટે
+    if (document.getElementById('adm_chittorgarhKey')) {
+        document.getElementById('adm_chittorgarhKey').value = ipo.chittorgarhKey || ipo.chittorgarh_key || '';
+    }
+
+    // એડિટ વખતે રિઝર્વેશન પર્સન્ટેજ બોક્સમાં ભરવા માટે
+    if (ipo.reservation) {
+        ipo.reservation.forEach(r => {
+            if (r.category === "QIB" && document.getElementById('res_qib')) {
+                document.getElementById('res_qib').value = parseFloat(r.percentage) || '';
+            }
+            if (r.category === "NII (HNI)" && document.getElementById('res_nii')) {
+                document.getElementById('res_nii').value = parseFloat(r.percentage) || '';
+            }
+            if (r.category === "Retail" && document.getElementById('res_retail')) {
+                document.getElementById('res_retail').value = parseFloat(r.percentage) || '';
+            }
+        });
+    }
 
     // એડિટ વખતે સબસ્ક્રિપ્શન શેર ડેટા ઇનપુટ બોક્સમાં ભરવા માટે
     if (ipo.subShares) {
@@ -504,17 +547,12 @@ function toggleNewRegistrarBox() {
     }
 }
 
-// પેજ લોડ થાય ત્યારે ડ્રોપડાઉનમાં રજિસ્ટ્રાર લોડ કરવા માટે
+// પેજ લોડ થાય ત્યારે અને એડિટ ફોર્મ ખૂલે ત્યારે ડ્રોપડાઉન અપડેટ કરવા માટેનું ફંક્શન
 function loadRegistrarDropdown() {
     const selectEl = document.getElementById('adm_registrarSelect');
     if (!selectEl) return;
 
-    let registrars = JSON.parse(localStorage.getItem('live_ipo_registrars')) || [
-        { name: "Link Intime India Pvt Ltd", url: "https://linkintime.co.in/initial_offer/default.aspx" },
-        { name: "KFin Technologies Ltd", url: "https://kosmic.kfintech.com/ipostatus/" },
-        { name: "Bigshare Services Pvt Ltd", url: "https://ipo.bigshareonline.com/ipo_status.html" }
-    ];
-
+    let registrars = getSavedRegistrars();
     selectEl.innerHTML = '<option value="">-- Select Registrar --</option>';
     registrars.forEach(reg => {
         const option = document.createElement('option');
@@ -522,6 +560,14 @@ function loadRegistrarDropdown() {
         option.textContent = reg.name;
         selectEl.appendChild(option);
     });
+}
+
+// જ્યારે ડ્રોપડાઉનમાંથી કોઈ રજિસ્ટ્રાર સિલેક્ટ કરીએ ત્યારે તેની URL ઓટોમેટિક ઇનપુટમાં આવી જાય
+function setRegistrarLink(url) {
+    const linkInput = document.getElementById('adm_allotmentLink');
+    if (linkInput && url) {
+        linkInput.value = url;
+    }
 }
 
 // નવો રજિસ્ટ્રાર ડ્રોપડાઉનમાં એડ કરવા માટે
@@ -537,12 +583,7 @@ function addNewRegistrarOption() {
         return;
     }
 
-    let registrars = JSON.parse(localStorage.getItem('live_ipo_registrars')) || [
-        { name: "Link Intime India Pvt Ltd", url: "https://linkintime.co.in/initial_offer/default.aspx" },
-        { name: "KFin Technologies Ltd", url: "https://kosmic.kfintech.com/ipostatus/" },
-        { name: "Bigshare Services Pvt Ltd", url: "https://ipo.bigshareonline.com/ipo_status.html" }
-    ];
-
+    let registrars = getSavedRegistrars();
     registrars.push({ name: name, url: url });
     localStorage.setItem('live_ipo_registrars', JSON.stringify(registrars));
 
@@ -586,18 +627,17 @@ function loadRegistrarsTable() {
     const tbody = document.getElementById('registrarsTableBody');
     if (!tbody) return;
 
-    let registrars = JSON.parse(localStorage.getItem('live_ipo_registrars')) || [
-        { name: "Link Intime India Pvt Ltd", url: "https://linkintime.co.in/initial_offer/default.aspx" },
-        { name: "KFin Technologies Ltd", url: "https://kosmic.kfintech.com/ipostatus/" },
-        { name: "Bigshare Services Pvt Ltd", url: "https://ipo.bigshareonline.com/ipo_status.html" }
-    ];
-
+    let registrars = getSavedRegistrars();
     tbody.innerHTML = '';
+
     registrars.forEach((reg, index) => {
         tbody.innerHTML += `
             <tr>
                 <td><strong>${reg.name}</strong></td>
-                <td><a href="${reg.url}" target="_blank" style="color: #0284c7; text-decoration: underline;">${reg.url}</a></td>
+                <td>${reg.website ? `<a href="https://${reg.website.replace(/^https?:\/\//, '')}" target="_blank" style="color: #0284c7; text-decoration: none;">${reg.website}</a>` : '-'}</td>
+                <td>${reg.mobile || '-'}</td>
+                <td>${reg.email ? `<a href="mailto:${reg.email}" style="color: #0284c7; text-decoration: none;">${reg.email}</a>` : '-'}</td>
+                <td>${reg.url ? `<a href="${reg.url}" target="_blank" style="color: #0284c7; text-decoration: underline;">${reg.url}</a>` : '-'}</td>
                 <td style="text-align: center;">
                     <button type="button" onclick="editRegistrar(${index})" class="btn-action-edit">✏️ Edit</button>
                     <button type="button" onclick="deleteRegistrar(${index})" class="btn-action-del">🗑️ Delete</button>
@@ -607,32 +647,68 @@ function loadRegistrarsTable() {
     });
 }
 
-// રજિસ્ટ્રાર એડિટ કરવા માટે
+// રજિસ્ટ્રાર એડિટ કરવા માટે મોડલ ફોર્મ ઓપન કરવા માટે
 function editRegistrar(index) {
-    let registrars = JSON.parse(localStorage.getItem('live_ipo_registrars')) || [];
+    let registrars = getSavedRegistrars();
     const reg = registrars[index];
     if (!reg) return;
 
-    const newName = prompt("રજિસ્ટ્રારનું નવું નામ દાખલ કરો:", reg.name);
-    if (newName === null) return;
+    document.getElementById('editRegIndex').value = index;
+    document.getElementById('editRegName').value = reg.name || '';
+    document.getElementById('editRegWeb').value = reg.website || '';
+    document.getElementById('editRegMobile').value = reg.mobile || '';
+    document.getElementById('editRegEmail').value = reg.email || '';
+    document.getElementById('editRegUrl').value = reg.url || '';
 
-    const newUrl = prompt("રજિસ્ટ્રારની નવી URL દાખલ કરો:", reg.url);
-    if (newUrl === null) return;
-
-    if (newName.trim() && newUrl.trim()) {
-        registrars[index] = { name: newName.trim(), url: newUrl.trim() };
-        localStorage.setItem('live_ipo_registrars', JSON.stringify(registrars));
-        loadRegistrarsTable();
-        loadRegistrarDropdown();
-        alert("✓ રજિસ્ટ્રાર સફળતાપૂર્વક અપડેટ થઈ ગયો છે!");
-    } else {
-        alert("નામ અને URL ખાલી ન હોઈ શકે.");
+    const modal = document.getElementById('registrarEditModal');
+    if (modal) {
+        modal.style.display = 'flex';
     }
+}
+
+// એડિટ ફોર્મ બંધ કરવા માટે
+function closeRegistrarModal() {
+    const modal = document.getElementById('registrarEditModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// એડિટ કરેલા રજિસ્ટ્રારના ફેરફારો સેવ કરવા માટે
+function saveUpdatedRegistrar() {
+    const index = document.getElementById('editRegIndex').value;
+    const name = document.getElementById('editRegName').value.trim();
+    const website = document.getElementById('editRegWeb').value.trim();
+    const mobile = document.getElementById('editRegMobile').value.trim();
+    const email = document.getElementById('editRegEmail').value.trim();
+    const url = document.getElementById('editRegUrl').value.trim();
+
+    if (!name || !url) {
+        alert('રજિસ્ટ્રારનું નામ અને એલોટમેન્ટ URL ખાલી ન હોઈ શકે.');
+        return;
+    }
+
+    let registrars = getSavedRegistrars();
+    registrars[index] = { 
+        name: name, 
+        website: website, 
+        mobile: mobile, 
+        email: email, 
+        url: url 
+    };
+
+    localStorage.setItem('live_ipo_registrars', JSON.stringify(registrars));
+    
+    loadRegistrarsTable();
+    loadRegistrarDropdown();
+    closeRegistrarModal();
+    
+    alert("✓ રજિસ્ટ્રાર સફળતાપૂર્વક અપડેટ થઈ ગયો છે!");
 }
 
 // રજિસ્ટ્રાર ડિલીટ કરવા માટે
 function deleteRegistrar(index) {
-    let registrars = JSON.parse(localStorage.getItem('live_ipo_registrars')) || [];
+    let registrars = getSavedRegistrars();
     if (confirm("શું તમે ખરેખર આ રજિસ્ટ્રારને ડિલીટ કરવા માંગો છો?")) {
         registrars.splice(index, 1);
         localStorage.setItem('live_ipo_registrars', JSON.stringify(registrars));
@@ -640,4 +716,53 @@ function deleteRegistrar(index) {
         loadRegistrarDropdown();
         alert("✓ રજિસ્ટ્રાર ડિલીટ થઈ ગયો છે.");
     }
+}
+
+// ડિફોલ્ટ રજિસ્ટ્રાર ડેટા
+function getSavedRegistrars() {
+    let regs = JSON.parse(localStorage.getItem('live_ipo_registrars'));
+    if (!regs || regs.length === 0) {
+        regs = [
+            { name: "Link Intime India Pvt Ltd", website: "linkintime.co.in", mobile: "022-49186200", email: "ipo@linkintime.co.in", url: "https://linkintime.co.in/initial_offer/default.aspx" },
+            { name: "KFin Technologies Ltd", website: "kfintech.com", mobile: "040-67162222", email: "einward.ris@kfintech.com", url: "https://kosmic.kfintech.com/ipostatus/" },
+            { name: "Bigshare Services Pvt Ltd", website: "bigshareonline.com", mobile: "022-62638200", email: "ipo@bigshareonline.com", url: "https://ipo.bigshareonline.com/ipo_status.html" }
+        ];
+        localStorage.setItem('live_ipo_registrars', JSON.stringify(regs));
+    }
+    return regs;
+}
+
+// મેનેજર સેક્શનમાંથી નવો રજિસ્ટ્રાર સેવ કરવા માટે
+function addNewRegistrarFromManager() {
+    const name = document.getElementById('manageNewRegName').value.trim();
+    const website = document.getElementById('manageNewRegWeb').value.trim();
+    const mobile = document.getElementById('manageNewRegMobile').value.trim();
+    const email = document.getElementById('manageNewRegEmail').value.trim();
+    const url = document.getElementById('manageNewRegUrl').value.trim();
+
+    if (!name || !url) {
+        alert('કૃપા કરીને રજિસ્ટ્રારનું નામ અને એલોટમેન્ટ URL અવશ્ય દાખલ કરો.');
+        return;
+    }
+
+    let registrars = getSavedRegistrars();
+    registrars.push({ 
+        name: name, 
+        website: website, 
+        mobile: mobile, 
+        email: email, 
+        url: url 
+    });
+    
+    localStorage.setItem('live_ipo_registrars', JSON.stringify(registrars));
+
+    document.getElementById('manageNewRegName').value = '';
+    document.getElementById('manageNewRegWeb').value = '';
+    document.getElementById('manageNewRegMobile').value = '';
+    document.getElementById('manageNewRegEmail').value = '';
+    document.getElementById('manageNewRegUrl').value = '';
+
+    loadRegistrarsTable();
+    loadRegistrarDropdown();
+    alert(`✓ રજિસ્ટ્રાર "${name}" સફળતાપૂર્વક સેવ થઈ ગયો છે!`);
 }
